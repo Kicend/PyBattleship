@@ -24,10 +24,10 @@ class Map:
         else:
             return False
 
-    def change_field(self, field: tuple, symbol: str):
+    def change_field(self, field: tuple, symbol: str, pass_check=False):
         x = field[0].upper()
         y = int(field[1]) - 1
-        if self.check_field((x, y)):
+        if self.check_field((x, y)) or pass_check is True:
             self.map[x][y] = symbol
             return True
         else:
@@ -111,13 +111,15 @@ class ShotMap(Map):
 
     def shoot(self, coordinates: str):
         x = coordinates[0].upper()
-        y = coordinates[1]
-        if self.check_field((x, y)):
-            if self.opponent_map.check_field((x, y)):
+        y = coordinates[1:]
+        if self.check_field((x, int(y) - 1)):
+            if self.opponent_map.check_field((x, int(y) - 1)):
                 self.change_field((x, y), "o")
+                self.opponent_map.change_field((x, y), "o", pass_check=True)
                 return True
             else:
                 self.change_field((x, y), "x")
+                self.opponent_map.change_field((x, y), "x", pass_check=True)
                 return True
         else:
             return False
