@@ -2,6 +2,23 @@
 from random import randint
 maps = {}
 
+class Ship:
+    def __init__(self, map_id: int, size: int, coordinates: tuple):
+        self.map_id = map_id
+        self.size = size
+        self.x = coordinates[0]
+        self.y = coordinates[1]
+        self.fields = []
+        self.durability = size
+        self.status = "alive"
+
+    def is_dead(self, field: str):
+        if field in self.fields and self.status == "alive":
+            self.durability -= 1
+            if self.durability == 0:
+                self.status = "dead"
+                return True
+
 class Map:
     def __init__(self, map_id: int):
         self.map = {"A": ["-", "-", "-", "-", "-", "-", "-", "-", "-", "-"],
@@ -33,20 +50,7 @@ class Map:
         else:
             return False
 
-class Ship:
-    def __init__(self, map_id: int, size: int, coordinates: tuple):
-        self.map_id = map_id
-        self.size = size
-        self.x = coordinates[0]
-        self.y = coordinates[1]
-        self.durability = size
-        self.status = "alive"
-
-class ShipSpacingMap(Map):
-    def __init__(self, map_id):
-        super().__init__(map_id)
-
-    def place_collision(self, ship: Ship):
+    def place_collision(self, ship: Ship, symbol: str):
         fields_list = []
         keys = list(self.map.keys())
         if ship.x[0] == ship.y[0]:
@@ -79,21 +83,33 @@ class ShipSpacingMap(Map):
 
         for coordinates in fields_list:
             if 0 < int(coordinates[1]) <= 10:
-                self.change_field(coordinates, "*")
+                self.change_field(coordinates, symbol)
+
+class ShipSpacingMap(Map):
+    def __init__(self, map_id):
+        super().__init__(map_id)
+        self.ships = []
 
     def place_ship(self, ship: Ship):
+        validate = []
         if ship.x[0] == ship.y[0]:
             if int(ship.y[1:]) - int(ship.x[1:]) + 1 == ship.size:
                 for i in range(int(ship.x[1:]), int(ship.y[1:]) + 1):
-                    if super().change_field((ship.x[0], i), "s") and i == int(ship.y[1:]):
-                        self.place_collision(ship)
+                    ship.fields.append(f"{ship.x[0]}{i}")
+                    validate.append(super().change_field((ship.x[0], i), "s"))
+                    if False not in validate and i == int(ship.y[1:]):
+                        self.place_collision(ship, "*")
+                        self.ships.append(ship)
                         return True
-        elif ship.x[1] == ship.y[1]:
+        elif ship.x[1:] == ship.y[1:]:
             keys = list(self.map.keys())
             if keys.index(ship.y[0].upper()) + 1 - keys.index(ship.x[0].upper()) == ship.size:
                 for i in range(keys.index(ship.x[0].upper()), keys.index(ship.y[0].upper()) + 1):
-                    if super().change_field((keys[i], int(ship.y[1:])), "s") and i == keys.index(ship.y[0].upper()):
-                        self.place_collision(ship)
+                    ship.fields.append(f"{keys[i]}{ship.y[1:]}")
+                    validate.append(super().change_field((keys[i], int(ship.y[1:])), "s"))
+                    if False not in validate and i == keys.index(ship.y[0].upper()):
+                        self.place_collision(ship, "*")
+                        self.ships.append(ship)
                         return True
         else:
             return 1
@@ -102,6 +118,15 @@ class ShipSpacingMap(Map):
         for letter in self.map.keys():
             for i in range(0, len(self.map)):
                 if self.map[letter][i] == "*":
+                    self.map[letter][i] = "-"
+
+    def repair_map(self):
+        ships_fields = []
+        for ship in self.ships:
+            ships_fields.extend(ship.fields)
+        for letter in self.map.keys():
+            for i in range(0, len(self.map)):
+                if self.map[letter][i] == "s" and f"{letter}{i+1}" not in ships_fields:
                     self.map[letter][i] = "-"
 
 class ShotMap(Map):
@@ -116,18 +141,25 @@ class ShotMap(Map):
             if self.opponent_map.check_field((x, int(y) - 1)):
                 self.change_field((x, y), "o")
                 self.opponent_map.change_field((x, y), "o", pass_check=True)
-                return True
+                return False
             else:
                 self.change_field((x, y), "x")
                 self.opponent_map.change_field((x, y), "x", pass_check=True)
+                self.check_ship(f"{x}{y}")
                 return True
         else:
             return False
 
+    def check_ship(self, field: str):
+        for ship in self.opponent_map.ships:
+            if ship.is_dead(field):
+                self.place_collision(ship, "o")
+                break
+
 class Game:
     def __init__(self):
         self.state = "main_menu"
-        self.ship_list = {"2": 2, "3": 2, "4": 2, "5": 1}
+        self.ship_list = {"5": 1, "4": 2, "3": 2, "2": 2}
         self.letter_to_number = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7, "H": 8, "I": 9, "J": 10}
         self.order = []
 
@@ -167,7 +199,7 @@ class Game:
                                   f"{list(self.letter_to_number.keys())[randint(0, 9)]}{randint(1, 10)}"
                     coordinates = coordinates.split()
                     if coordinates[0][0] == coordinates[1][0]:
-                        size = int(coordinates[1][1]) - int(coordinates[0][1]) + 1
+                        size = int(coordinates[1][1:]) - int(coordinates[0][1:]) + 1
                     else:
                         size = self.letter_to_number[coordinates[1][0].upper()] - \
                                self.letter_to_number[coordinates[0][0].upper()] + 1
@@ -177,7 +209,7 @@ class Game:
         else:
             while True:
                 coordinates = f"{list(self.letter_to_number.keys())[randint(0, 9)]}{randint(1, 10)}"
-                if maps[-1].shoot(coordinates):
+                if not maps[-1].shoot(coordinates):
                     break
 
     def player_turn(self, player_ship_map: ShipSpacingMap):
@@ -210,8 +242,10 @@ class Game:
             while True:
                 coordinates = input("Podaj współrzędne do strzału: \n"
                                     "> ")
-                if maps[2].shoot(coordinates):
+                if not maps[2].shoot(coordinates):
                     break
+                else:
+                    self.render()
 
     @staticmethod
     def is_victory():
@@ -246,6 +280,7 @@ class Game:
         if mode == 0:
             self.ai(maps[-2])
             maps[-2].del_collision()
+            maps[-2].repair_map()
             self.player_turn(maps[1])
             maps[1].del_collision()
             if randint(0, 1) == 0:
