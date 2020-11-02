@@ -157,11 +157,13 @@ class ShotMap(Map):
                 break
 
 class Game:
-    def __init__(self):
+    def __init__(self, difficulty: int = 0, map_auto: int = 0):
         self.state = "main_menu"
         self.ship_list = {"5": 1, "4": 2, "3": 2, "2": 2}
         self.letter_to_number = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7, "H": 8, "I": 9, "J": 10}
         self.order = []
+        self.ai_difficulty = difficulty
+        self.player_map_auto = map_auto
 
     def main_menu(self):
         print("BITWA MORSKA\n"
@@ -171,10 +173,25 @@ class Game:
         while True:
             decision = input("> ")
             if decision == "1":
-                session = Game()
+                while True:
+                    self.ai_difficulty = int(input("Wybierz poziom trudności:\n"
+                                                   "1 - Łatwy\n"
+                                                   "2 - Średni\n"
+                                                   "3 - Trudny\n"
+                                                   "> ")) - 1
+                    if self.ai_difficulty in range(3):
+                        break
+                while True:
+                    self.player_map_auto = int(input("Jak chcesz rozstawić statki?\n"
+                                                     "1 - Manualnie\n"
+                                                     "2 - Automatycznie\n"
+                                                     "> ")) - 1
+                    if self.player_map_auto in range(2):
+                        break
+                session = Game(self.ai_difficulty, self.player_map_auto)
                 session.preparing(0)
             elif decision == "2":
-                session = Game()
+                session = Game(self.ai_difficulty, self.player_map_auto)
                 session.preparing(1)
             elif decision == "3":
                 self.instruction()
@@ -207,10 +224,15 @@ class Game:
                         if ai_ship_map.place_ship(ship=Ship(-1, int(ship), (coordinates[0], coordinates[1]))) is True:
                             i += 1
         else:
-            while True:
-                coordinates = f"{list(self.letter_to_number.keys())[randint(0, 9)]}{randint(1, 10)}"
-                if not maps[-1].shoot(coordinates):
-                    break
+            if self.ai_difficulty == 0:
+                while True:
+                    coordinates = f"{list(self.letter_to_number.keys())[randint(0, 9)]}{randint(1, 10)}"
+                    if not maps[-1].shoot(coordinates):
+                        break
+            elif self.ai_difficulty == 1:
+                pass
+            else:
+                pass
 
     def player_turn(self, player_ship_map: ShipSpacingMap):
         if self.state == "preparing":
@@ -281,8 +303,14 @@ class Game:
             self.ai(maps[-2])
             maps[-2].del_collision()
             maps[-2].repair_map()
-            self.player_turn(maps[1])
-            maps[1].del_collision()
+            if self.player_map_auto == 0:
+                self.player_turn(maps[1])
+                maps[1].del_collision()
+            else:
+                self.ai(maps[1])
+                maps[1].del_collision()
+                maps[1].repair_map()
+                self.state = "playing"
             if randint(0, 1) == 0:
                 self.order = ["player_1", "player_2"]
             else:
