@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from random import randint
+from os import system, name
 maps = {}
 
 class Ship:
@@ -321,6 +322,11 @@ class Game:
     def render(render="all"):
         shot_map = "  1 2 3 4 5 6 7 8 9 10\n"
         ship_map = "  1 2 3 4 5 6 7 8 9 10\n"
+        if name == "nt":
+            system("cls")
+        else:
+            system("clear")
+
         if render == "all":
             for letter, fields in maps[2].map.items():
                 shot_map += letter + " "
